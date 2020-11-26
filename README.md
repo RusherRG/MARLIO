@@ -36,7 +36,7 @@ cargo web start --release --open
 
 ### Install OpenAI gym
 
-```
+```shell
 pip3 install -r requirements.txt
 pip3 install -e gym_codeside
 ```

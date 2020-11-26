@@ -1,0 +1,13 @@
+{
+    "aim": {
+        "x": 37.0,
+        "y": 0.0
+    },
+    "jump": false,
+    "jump_down": true,
+    "plant_mine": false,
+    "reload": false,
+    "shoot": true,
+    "swap_weapon": false,
+    "velocity": 37.0
+}
