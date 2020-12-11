@@ -10,13 +10,13 @@ from .agent.debug import Debug
 from .agent.model import PlayerMessageGame, ServerMessageGame, \
     Versioned, UnitAction, Vec2Double
 import threading
-from pprint import pprint
+import tensorflow as tf
 
 
 class CodeSideEnv(gym.Env):
     metadata = {"render.modes": ["human"]}
 
-    def __init__(self, config="config_simple.json"):
+    def __init__(self, name="Helen", config="config_simple.json"):
         """
         Initialize a thread for the game environment
         """
@@ -28,6 +28,9 @@ class CodeSideEnv(gym.Env):
         self.prev_calc = {
             "distance": 10**9+7
         }
+        self.steps = 0
+        self.total_reward = 0
+        self.file_writers = {}
 
     def reset(self, config, player1_name="Agent", player2_name="Computer"):
         """
@@ -64,6 +67,11 @@ class CodeSideEnv(gym.Env):
 
     def create_action(self, velocity, jump, jump_down, aim_x, aim_y, shoot, reload,
                       swap_weapon, plant_mine):
+
+        self.tensorboard_log("Actions", shoot, "Shoot")
+        self.tensorboard_log("Actions", swap_weapon, "Swap_Weapon")
+        self.tensorboard_log("Actions", plant_mine, "Plant_Mine")
+
         return UnitAction(
             velocity=velocity,
             jump=jump,
@@ -108,7 +116,20 @@ class CodeSideEnv(gym.Env):
                         reward = 1
                 self.prev_calc["distance"] = new_distance
 
+        self.total_reward += reward
+        self.tensorboard_log("Total_Reward", self.total_reward, "total_reward")
+        self.tensorboard_log("Reward", reward, 'reward')
+
         return reward
+
+    def tensorboard_log(self, name, value, logdir):
+        if self.file_writers.get(logdir, 0):
+            summary_writer = self.file_writers[logdir]
+        else:
+            summary_writer = tf.summary.create_file_writer('logs/'+logdir)
+            self.file_writers[logdir] = summary_writer
+        with summary_writer.as_default():
+            tf.summary.scalar(name, value, step=self.steps)
 
     def step(self, agent, actions):
         """
@@ -129,6 +150,7 @@ class CodeSideEnv(gym.Env):
         reward = self.get_reward(raw_state, self.prev_state)
         self.logger.info("Reward: {}".format(reward))
         self.prev_state = raw_state
+        self.steps += 1
         return state, raw_state, reward
 
     def close(self):

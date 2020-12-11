@@ -36,7 +36,7 @@ def class_to_dict(state):
 while True:
     time.sleep(0.1)
     # pprint(state)
-    x = input()
+    # x = input()
     with open("state.json", 'w') as f:
         json.dump(state, f)
     actions = {}
