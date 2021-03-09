@@ -1,8 +1,0 @@
-[package]
-name = "aicup2019"
-version = "$version"
-edition = "2018"
-
-[dependencies]
-model = { path = "model", package = "aicup2019-model" }
-trans = "0.1"
