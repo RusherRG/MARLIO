@@ -1,7 +1,0 @@
-(
-    view_speed: 1,
-    volume: 0.5,
-    renderer: (
-        mode: Fancy,
-    ),
-)
