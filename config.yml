@@ -1,0 +1,12 @@
+game_config:
+  agents: 2
+  render_mode: human
+  level: default
+  host: 127.0.0.1
+  port: 31000
+
+agents_config:
+  agents: [DQN, SS]
+  mode: train
+  episodes: 1000
+  epochs: 100
