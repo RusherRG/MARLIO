@@ -6,7 +6,7 @@ game_config:
   port: 31000
 
 agents_config:
-  agents: random
+  agents: Random
   mode: train
   episodes: 1000
   epochs: 100

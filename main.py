@@ -8,6 +8,7 @@ import typer
 import yaml
 import coloredlogs
 import logging
+import pathlib
 
 logger = logging.getLogger(__name__)
 coloredlogs.install(level='DEBUG', logger=logger)
@@ -55,7 +56,8 @@ def single_agent(config, verbose, gui, tensorboard, output_dir, train):
     # Import Agent Strategy
     import importlib
     strategy = importlib.import_module(
-        f'agents.agent_{config.agents_config.agents}.{config.agents_config.agents}')
+        f'agents.agent_{config.agents_config.agents}')
+    strategy = strategy.Strategy
 
     # Initialize Gym
     from helpers.utils import game_config_json
@@ -63,7 +65,9 @@ def single_agent(config, verbose, gui, tensorboard, output_dir, train):
 
     import gym
     import time
-    env = gym.make("codeside:codeside-v0", config=config_json)
+    x = pathlib.Path(__file__).parent.absolute()
+    x = str(x).replace(" ", "\\ ")
+    env = gym.make("codeside:codeside-v0", config=f"{x}/config.json")
     time.sleep(2)
 
     # Spawn Our Player

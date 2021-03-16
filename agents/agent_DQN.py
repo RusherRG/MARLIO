@@ -1,7 +1,7 @@
 from collections import deque
 
 
-class DQN:
+class Strategy:
     def __init__(self, env, config):
         self.env = env
         self.config = config
