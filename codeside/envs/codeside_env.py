@@ -41,6 +41,7 @@ class CodeSideEnv(gym.Env):
         self.logger.debug("Setting up environment")
         try:
             bin_path = Path(__file__).parent.absolute().as_posix()
+            bin_path = bin_path.replace(" ", "\\ ")
             cmd = f"{bin_path}/../../bin/aicup2019 --config {self.config} " + \
                 f"--player-names {self.player1_name} {self.player2_name}"
             self.logger.debug(cmd)
@@ -183,7 +184,7 @@ class CodeSideEnv(gym.Env):
         """
         message = ServerMessageGame.read_from(agent.reader)
         if message.player_view is None:
-            return None, None
+            return None, None, None
         player_view = message.player_view
         state = dict(copy.deepcopy(player_view.__dict__))
         state = class_to_dict(state)
@@ -247,8 +248,8 @@ class CodeSideEnv(gym.Env):
         observations of the game environment
         """
         # Convert actions to UnitAction objects
-        # for unit_id in actions:
-        #     actions[unit_id] = self.create_action(**actions[unit_id])
+        for unit_id in actions:
+            actions[unit_id] = self.create_action(**actions[unit_id])
 
         # Perform the action
         PlayerMessageGame.ActionMessage(
@@ -262,8 +263,8 @@ class CodeSideEnv(gym.Env):
             self.logger.debug(f"Reward: {reward}")
             self.prev_state = raw_state
             self.steps += 1
-            return reduced_state, state, raw_state, reward, False
-        return None, None, None, None, True
+            return reduced_state, reward, False, raw_state
+        return None, None, True, None
 
     def sample_space(self):
         """
@@ -278,17 +279,17 @@ class CodeSideEnv(gym.Env):
         Return a sample action
         """
         action = {
-            "aim": {
-                "x": 37.0,
-                "y": 0.0
-            },
-            "jump": false,
-            "jump_down": true,
-            "plant_mine": false,
-            "reload": false,
-            "shoot": true,
-            "swap_weapon": false,
-            "velocity": 37.0
+            3: {
+                "aim_x": 37.0,
+                "aim_y": 0.0,
+                "jump": False,
+                "jump_down": True,
+                "plant_mine": False,
+                "reload": False,
+                "shoot": True,
+                "swap_weapon": False,
+                "velocity": 37.0
+            }
         }
         return action
 
