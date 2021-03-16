@@ -1,6 +1,11 @@
 import os
 import copy
+import math
 import time
+import json
+import random
+import signal
+from pathlib import Path
 import gym
 from gym import error, spaces, utils
 from gym.utils import seeding
@@ -10,19 +15,10 @@ from .agent.debug import Debug
 from .agent.model import PlayerMessageGame, ServerMessageGame, \
     Versioned, UnitAction, Vec2Double
 import threading
-import tensorflow as tf
 
 
 class CodeSideEnv(gym.Env):
-    metadata = {"render.modes": ["human"]}
-
-    def __init__(self, name="Helen", config="config_simple.json"):
-        """
-        Initialize a thread for the game environment
-        """
-        self.game = threading.Thread(target=self.reset, args=[config])
-        self.game.setDaemon = True
-        self.game.start()
+    def __init__(self, config="./levels/config_simple.json", player1_name="Player1", player2_name="Player2"):
         self.logger = get_logger(__name__)
         self.prev_state = None
         self.prev_calc = {
@@ -30,27 +26,156 @@ class CodeSideEnv(gym.Env):
         }
         self.steps = 0
         self.total_reward = 0
-        self.file_writers = {}
+        self.game = None
+        self.config = config
+        self.player1_name = player1_name
+        self.player2_name = player2_name
+        self.reset()
 
-    def reset(self, config, player1_name="Agent", player2_name="Computer"):
+    def reset(self):
         """
-        Reset the environment with a particular configuration
+        Reset the environment with a particular configuration and
+        initialize a thread which runs the game environment
         """
+        self.close()
+        self.logger.debug("Setting up environment")
         try:
-            cmd = "../bin/aicup2019 --config ./levels/{} ".format(config) + \
-                "--player-names {} {}".format(player1_name, player2_name)
-            os.system(cmd)
+            bin_path = Path(__file__).parent.absolute().as_posix()
+            cmd = f"{bin_path}/../../bin/aicup2019 --config {self.config} " + \
+                f"--player-names {self.player1_name} {self.player2_name}"
+            self.logger.debug(cmd)
+            self.game = threading.Thread(target=os.system, args=[cmd])
+            self.game.setDaemon(True)
+            self.game.start()
             self.logger.info("Environment successfully setup!")
         except Exception as err:
             self.logger.error(err)
         return
 
-    def create_agent(self, host="127.0.0.1", port=31000):
+    def create_player(self, host="127.0.0.1", port=31000):
         """
         Create an agent object that connects to the server using sockets
         """
         agent = Agent(host, port)
+        self.logger.info(f"Agent connected at port {port}")
         return agent
+
+    def state_reducer(self, state):
+        """
+        Reduce the state dictionary
+        """
+        if "game" not in state:
+            return state
+        reduced_state = {
+            "player_id": state.get("my_id", 0),
+            "units": [],
+            "opp_units": [],
+            "mines": [],
+            "bullets": [],
+            "loot_boxes": [],
+        }
+        for player in state["game"].get("players", []):
+            if player["id"] == reduced_state["player_id"]:
+                reduced_state["player_score"] = player["score"]
+            else:
+                reduced_state["opp_score"] = player["score"]
+
+        tile_range = 3
+        level_size_x = len(state["game"]["level"]["tiles"][0])
+        level_size_y = len(state["game"]["level"]["tiles"])
+
+        for unit in state["game"].get("units", []):
+            if unit.get("weapon") is None:
+                del unit["weapon"]
+            observation = [
+                unit["health"],
+                unit["position"]["x"],
+                unit["position"]["y"],
+                int(unit["jump_state"]["can_jump"]),
+                int(unit["walked_right"]),
+                int(unit["stand"]),
+                int(unit["on_ground"]),
+                int(unit["on_ladder"]),
+                unit["mines"],
+                unit.get("weapon", {}).get("typ", {}).get("value", -1),
+                unit.get("weapon", {}).get("magazine", 0),
+                int(unit.get("weapon", {}).get("was_shooting", False)),
+                unit.get("weapon", {}).get("last_angle", 0),
+            ]
+
+            x = math.floor(observation[1])
+            y = math.ceil(observation[2])
+            tiles = []
+            for yy in range(y-tile_range, y+tile_range+1):
+                if yy < 0 or yy >= level_size_y:
+                    tiles.append([0]*level_size_x)
+                    continue
+                tiles_x = []
+                for xx in range(x-tile_range, x+tile_range+1):
+                    if xx < 0 or xx >= level_size_x:
+                        tiles_x.append(0)
+                    else:
+                        tiles_x.append(state["game"]["level"]
+                                       ["tiles"][yy][xx]["value"])
+                tiles.append(tiles_x)
+            observation.append(tiles)
+
+            if unit["player_id"] == reduced_state["player_id"]:
+                reduced_state["units"].append(observation)
+            else:
+                reduced_state["opp_units"].append(observation)
+
+        for loot in state["game"].get("loot_boxes", []):
+            box = [
+                loot["position"]["x"],
+                loot["position"]["y"],
+                0,
+                0
+            ]
+            if loot["item"].get("weapon_type") is not None:
+                box[2] = 1
+                box[3] = loot["item"]["weapon_type"]["value"]
+            elif loot["item"].get("health") is not None:
+                box[2] = 2
+                box[3] = loot["item"]["health"]
+            reduced_state["loot_boxes"].append(box)
+
+        for bullet in state["game"].get("bullets", []):
+            bull = [
+                bullet["position"]["x"],
+                bullet["position"]["y"],
+                bullet["velocity"]["x"],
+                bullet["velocity"]["y"],
+                bullet["damage"],
+                bullet["size"]
+            ]
+            if bullet["explosion_params"] is None:
+                bull.extend([0, 0])
+            else:
+                bull.extend([
+                    bullet["explosion_params"].get("damage", 0),
+                    bullet["explosion_params"].get("range", 0)
+                ])
+            reduced_state["bullets"].append(bull)
+
+        for mine in state["game"].get("mines", []):
+            minee = [
+                mine["position"]["x"],
+                mine["position"]["y"],
+                mine["state"],
+                mine["timer"],
+                mine["trigger_radius"]
+            ]
+            if mine["explosion_params"] is None:
+                minee.extend([0, 0])
+            else:
+                minee.extend([
+                    mine["explosion_params"].get("damage", 0),
+                    mine["explosion_params"].get("range", 0)
+                ])
+            reduced_state["mines"].append(minee)
+
+        return reduced_state
 
     def get_state(self, agent):
         """
@@ -58,20 +183,18 @@ class CodeSideEnv(gym.Env):
         """
         message = ServerMessageGame.read_from(agent.reader)
         if message.player_view is None:
-            return
+            return None, None
         player_view = message.player_view
         state = dict(copy.deepcopy(player_view.__dict__))
         state = class_to_dict(state)
-        # state = player_view
-        return state, player_view
+        reduced_state = self.state_reducer(state)
+        return reduced_state, state, player_view
 
     def create_action(self, velocity, jump, jump_down, aim_x, aim_y, shoot, reload,
                       swap_weapon, plant_mine):
-
-        self.tensorboard_log("Actions", shoot, "Shoot")
-        self.tensorboard_log("Actions", swap_weapon, "Swap_Weapon")
-        self.tensorboard_log("Actions", plant_mine, "Plant_Mine")
-
+        """
+        Returns a UnitAction object as required by the CodeSide env
+        """
         return UnitAction(
             velocity=velocity,
             jump=jump,
@@ -115,21 +238,8 @@ class CodeSideEnv(gym.Env):
                     if self.prev_calc["distance"] - new_distance > 0:
                         reward = 1
                 self.prev_calc["distance"] = new_distance
-
         self.total_reward += reward
-        self.tensorboard_log("Total_Reward", self.total_reward, "total_reward")
-        self.tensorboard_log("Reward", reward, 'reward')
-
         return reward
-
-    def tensorboard_log(self, name, value, logdir):
-        if self.file_writers.get(logdir, 0):
-            summary_writer = self.file_writers[logdir]
-        else:
-            summary_writer = tf.summary.create_file_writer('logs/'+logdir)
-            self.file_writers[logdir] = summary_writer
-        with summary_writer.as_default():
-            tf.summary.scalar(name, value, step=self.steps)
 
     def step(self, agent, actions):
         """
@@ -146,15 +256,47 @@ class CodeSideEnv(gym.Env):
         agent.writer.flush()
 
         # Get state observations
-        state, raw_state = self.get_state(agent)
-        reward = self.get_reward(raw_state, self.prev_state)
-        self.logger.info("Reward: {}".format(reward))
-        self.prev_state = raw_state
-        self.steps += 1
-        return state, raw_state, reward
+        reduced_state, state, raw_state = self.get_state(agent)
+        if state is not None:
+            reward = self.get_reward(raw_state, self.prev_state)
+            self.logger.debug(f"Reward: {reward}")
+            self.prev_state = raw_state
+            self.steps += 1
+            return reduced_state, state, raw_state, reward, False
+        return None, None, None, None, True
+
+    def sample_space(self):
+        """
+        Return a sample observation space
+        """
+        with open("sample_space.json", "r") as f:
+            space = json.load(f)
+        return space
+
+    def sample_action(self):
+        """
+        Return a sample action
+        """
+        action = {
+            "aim": {
+                "x": 37.0,
+                "y": 0.0
+            },
+            "jump": false,
+            "jump_down": true,
+            "plant_mine": false,
+            "reload": false,
+            "shoot": true,
+            "swap_weapon": false,
+            "velocity": 37.0
+        }
+        return action
 
     def close(self):
         """
         Terminate the game thread
         """
-        ...
+        if self.game is not None and self.game.is_alive():
+            self.logger.debug("Killing game thread")
+            os.kill(self.game.native_id+2, signal.SIGKILL)
+        return
