@@ -1,7 +1,7 @@
 (
     view_speed: 2,
-    volume: 0.0220184326171875,
+    volume: 0,
     renderer: (
-        mode: Fancy,
+        mode: Schematic,
     ),
 )

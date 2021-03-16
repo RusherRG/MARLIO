@@ -189,7 +189,7 @@ class CodeSideEnv(gym.Env):
         state = dict(copy.deepcopy(player_view.__dict__))
         state = class_to_dict(state)
         reduced_state = self.state_reducer(state)
-        return reduced_state, state, player_view
+        return [reduced_state, state, player_view]
 
     def create_action(self, velocity, jump, jump_down, aim_x, aim_y, shoot, reload,
                       swap_weapon, plant_mine):
@@ -221,7 +221,7 @@ class CodeSideEnv(gym.Env):
                         # damage taken
                         if prev_state_unit.health > unit.health:
                             reward = -(prev_state_unit.health -
-                                       unit.health)//10
+                                       unit.health)
                         # picked a new weapon
                         if prev_state_unit.weapon is None and \
                                 unit.weapon is not None:
@@ -257,13 +257,13 @@ class CodeSideEnv(gym.Env):
         agent.writer.flush()
 
         # Get state observations
-        reduced_state, state, raw_state = self.get_state(agent)
+        reduced_state, state, player_view = self.get_state(agent)
         if state is not None:
-            reward = self.get_reward(raw_state, self.prev_state)
+            reward = self.get_reward(player_view, self.prev_state)
             self.logger.debug(f"Reward: {reward}")
-            self.prev_state = raw_state
+            self.prev_state = player_view
             self.steps += 1
-            return reduced_state, reward, False, raw_state
+            return [reduced_state, state, player_view], reward, False, None
         return None, None, True, None
 
     def sample_space(self):
