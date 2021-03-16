@@ -2,10 +2,12 @@ from typing import Optional
 from pathlib import Path
 from os import path
 from dotmap import DotMap
+from helpers.board import TensorboardLogger
 
 import typer
 import yaml
-import coloredlogs, logging
+import coloredlogs
+import logging
 
 logger = logging.getLogger(__name__)
 coloredlogs.install(level='DEBUG', logger=logger)
@@ -71,20 +73,30 @@ def single_agent(config, verbose, gui, tensorboard, output_dir, train):
     agents_config = config.agents_config
     agent = strategy(env, agents_config)
 
+    # Initialize TensorBoard Logger
+    tensorboard = TensorboardLogger(config)
+
     # Start
     for episode in range(agents_config.episodes):
         cur_state = env.reset()
-        steps = 0
+        step = 0
+        tot_reward = 0
         while True:
             action = agent.act(cur_state)
             new_state, reward, done, _ = env.step(action)
 
             agent.custom_logic(cur_state, action, reward,
                                new_state, done, episode)
+            tensorboard.log_step(episode, step, action, reward, new_state)
+
             cur_state = new_state
-            steps += 1
+
+            tot_reward += reward
+            step += 1
             if done:
                 break
+        tensorboard.log_episode(
+            episode, step, tot_reward, done)  # add win state
         if episode % agents_config.save_every == 0:
             agent.save_model(f"{agents_config.agents}_{episode}.model")
 
