@@ -4,7 +4,9 @@ import tensorflow as tf
 class TensorboardLogger:
     def __init__(self, config):
         self.episode = 0
-        self.ep_writer = tf.summary.create_file_writer(logdir=f"./logs/ep_{self.episode}")
+        self.ep_writer = tf.summary.create_file_writer(
+            logdir=f"./logs/ep_{self.episode}"
+        )
         self.glob_writer = tf.summary.create_file_writer(logdir="./logs/glob")
         return
 
@@ -17,5 +19,7 @@ class TensorboardLogger:
         self.episode = episode
         with self.glob_writer.as_default():
             tf.summary.scalar(name="ep_reward", data=tot_reward, step=episode)
-        self.ep_writer = tf.summary.create_file_writer(logdir=f"./logs/ep_{self.episode}")
+        self.ep_writer = tf.summary.create_file_writer(
+            logdir=f"./logs/ep_{self.episode}"
+        )
         return

@@ -70,8 +70,7 @@ def single_agent(config, verbose, gui, tensorboard, output_dir, train):
     env = gym.make("codeside:codeside-v0", config=f"{x}/config.json")
     time.sleep(2)
 
-    # Spawn Our Player
-    player = env.create_player(port=config.game_config.port)
+    
 
     # Initialize Agent Strategy
     agents_config = config.agents_config
@@ -82,23 +81,25 @@ def single_agent(config, verbose, gui, tensorboard, output_dir, train):
 
     # Start
     for episode in range(agents_config.episodes):
+        # Spawn Our Player
+        time.sleep(2)
         cur_state = env.reset()
+        player = env.create_player(port=config.game_config.port)
         step = 0
         tot_reward = 0
         while True:
             action = agent.act(cur_state)
-            new_state, reward, done, _ = env.step(action)
+            new_state, reward, done, _ = env.step(player, action)
+            if done:
+                break
 
             agent.custom_logic(cur_state, action, reward,
                                new_state, done, episode)
             tensorboard.log_step(episode, step, action, reward, new_state)
 
             cur_state = new_state
-
             tot_reward += reward
             step += 1
-            if done:
-                break
         tensorboard.log_episode(
             episode, step, tot_reward, done)  # add win state
         if episode % agents_config.save_every == 0:

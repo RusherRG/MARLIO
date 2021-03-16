@@ -4,7 +4,7 @@ class Strategy:
         self.config = config
 
     def act(self, state):
-        return self.env.action_space.sample()
+        return self.env.sample_action()
 
     def custom_logic(self, cur_state, action, reward, new_state, done, episode):
         print("No Custom Logic for random agent")
