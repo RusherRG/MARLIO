@@ -8,6 +8,6 @@ game_config:
 agents_config:
   agents: QuickStart
   mode: train
-  episodes: 1000
+  episodes: 50
   epochs: 100
   save_every: 10

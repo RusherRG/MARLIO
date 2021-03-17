@@ -4,12 +4,10 @@ import shutil
 
 class TensorboardLogger:
     def __init__(self, config, output_dir):
-        self.episode = 0
         self.output_dir = output_dir
         self.ep_writer = tf.summary.create_file_writer(
-            logdir=f"{output_dir}/logs/ep_{self.episode}"
+            logdir=f"{output_dir}/logs/ep_0"
         )
-        shutil.rmtree(f"{output_dir}/logs/")
         self.glob_writer = tf.summary.create_file_writer(
             logdir=f"{output_dir}/logs/glob"
         )
@@ -21,10 +19,10 @@ class TensorboardLogger:
         return
 
     def log_episode(self, episode, steps, tot_reward, done):
-        self.episode = episode
         with self.glob_writer.as_default():
             tf.summary.scalar(name="ep_reward", data=tot_reward, step=episode)
+        episode = episode + 1
         self.ep_writer = tf.summary.create_file_writer(
-            logdir=f"{self.output_dir}/logs/ep_{self.episode}"
+            logdir=f"{self.output_dir}/logs/ep_{episode}"
         )
         return
