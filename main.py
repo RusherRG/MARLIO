@@ -113,8 +113,10 @@ def single_agent(config, verbose, gui, tensorboard, output_dir, train):
     tensorboard = TensorboardLogger(config, output_dir)
     replays = os.path.join(output_dir, "replays")
     results = os.path.join(output_dir, "results")
+    models = os.path.join(output_dir, "models")
     os.makedirs(replays)
     os.makedirs(results)
+    os.makedirs(models)
     # Start
     for episode in range(agents_config.episodes):
         # Spawn Our Player
@@ -141,7 +143,8 @@ def single_agent(config, verbose, gui, tensorboard, output_dir, train):
         tensorboard.log_episode(
             episode, step, tot_reward, done)  # add win state
         if episode % agents_config.save_every == 0:
-            agent.save_model(f"{agents_config.agents}_{episode}.model")
+            model = os.path.join(models, f"ep_{episode}.model")
+            agent.save_model(model)
 
     return
 
