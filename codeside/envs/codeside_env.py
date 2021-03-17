@@ -32,12 +32,13 @@ class CodeSideEnv(gym.Env):
         self.player2_name = player2_name
         self.reset()
 
-    def reset(self, replay_path=None, result_path=None):
+    def reset(self, replay_path=None, result_path=None, batch_mode=True):
         """
         Reset the environment with a particular configuration and
         initialize a thread which runs the game environment
         """
-        # self.close()
+        if not batch_mode:
+            self.close()
         self.logger.debug("Setting up environment")
         try:
             bin_path = Path(__file__).parent.absolute().as_posix()
@@ -46,7 +47,9 @@ class CodeSideEnv(gym.Env):
                 f" --player-names {self.player1_name} {self.player2_name}" + \
                 f" --save-replay {replay_path}" + \
                 f" --save-results {result_path}" + \
-                " --batch-mode --log-level error"
+                " --log-level error"
+            if batch_mode:
+                cmd += " --batch-mode"
             self.logger.debug(cmd)
             self.game = threading.Thread(target=os.system, args=[cmd])
             self.game.setDaemon(True)
@@ -299,13 +302,13 @@ class CodeSideEnv(gym.Env):
     def get_action(self, discrete_action):
         actions = {}
         aim_argmax = discrete_action[0]
-        deg = ((aim_argmax*30)//180)*math.pi
+        deg = ((aim_argmax*30)/180)*math.pi
         aim_x = math.cos(deg) * 30
         aim_y = math.sin(deg) * 30
 
         # get velocity
         velocity_argmax = discrete_action[1]
-        velocity = (velocity_argmax - 2) * 10
+        velocity = (velocity_argmax - 2) * 25
 
         # get action
         action_argmax = discrete_action[2]
