@@ -37,7 +37,7 @@ class CodeSideEnv(gym.Env):
         Reset the environment with a particular configuration and
         initialize a thread which runs the game environment
         """
-        self.close()
+        # self.close()
         self.logger.debug("Setting up environment")
         try:
             bin_path = Path(__file__).parent.absolute().as_posix()
@@ -241,10 +241,10 @@ class CodeSideEnv(gym.Env):
                             # damage by bullet
                             prev_count = 0
                             for prev_bullet in prev_state.game.bullets:
-                                if prev_bullet.unit_id == unit.id:
+                                if prev_bullet.unit_id != unit.id:
                                     prev_count += 1
                             for bullet in state.game.bullets:
-                                if bullet.unit_id == unit.id:
+                                if bullet.unit_id != unit.id:
                                     prev_count -= 1
                             if prev_count > 0:
                                 reward += (prev_state_unit.health -
@@ -252,10 +252,10 @@ class CodeSideEnv(gym.Env):
                             # damage by mine
                             prev_count = 0
                             for prev_mine in prev_state.game.mines:
-                                if prev_mine.unit_id == unit.id:
+                                if prev_mine.unit_id != unit.id:
                                     prev_count += 1
                             for mine in state.game.mines:
-                                if mine.unit_id == unit.id:
+                                if mine.unit_id != unit.id:
                                     prev_count -= 1
                             if prev_count > 0:
                                 reward += (prev_state_unit.health -
