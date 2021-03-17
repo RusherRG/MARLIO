@@ -92,6 +92,7 @@ class CodeSideEnv(gym.Env):
             if unit.get("weapon") is None:
                 del unit["weapon"]
             observation = [
+                unit["id"],
                 unit["health"],
                 unit["position"]["x"],
                 unit["position"]["y"],
@@ -295,24 +296,56 @@ class CodeSideEnv(gym.Env):
             space = json.load(f)
         return space
 
+    def get_action(self, discrete_action):
+        actions = {}
+        aim_argmax = discrete_action[0]
+        deg = ((aim_argmax*30)//180)*math.pi
+        aim_x = math.cos(deg) * 30
+        aim_y = math.sin(deg) * 30
+
+        # get velocity
+        velocity_argmax = discrete_action[1]
+        velocity = (velocity_argmax - 2) * 10
+
+        # get action
+        action_argmax = discrete_action[2]
+        shoot = action_argmax == 0
+        reload = action_argmax == 1
+        swap_weapon = action_argmax == 2
+        plant_mine = action_argmax == 3
+
+        # get jump
+        jump = bool(discrete_action[3])
+
+        # get jump_down
+        jump_down = bool(discrete_action[4]) and not jump
+
+        actions = {
+            "aim_x": aim_x,
+            "aim_y": aim_y,
+            "velocity": velocity,
+            "jump": jump,
+            "jump_down": jump_down,
+            "shoot": shoot,
+            "reload": reload,
+            "swap_weapon": swap_weapon,
+            "plant_mine": plant_mine
+        }
+        return actions
+
     def sample_action(self):
         """
         Return a sample action
         """
-        action = {
-            3: {
-                "aim_x": 37.0,
-                "aim_y": 0.0,
-                "jump": False,
-                "jump_down": True,
-                "plant_mine": False,
-                "reload": False,
-                "shoot": True,
-                "swap_weapon": False,
-                "velocity": 37.0
-            }
-        }
-        return action
+        discrete_action = [
+            random.randint(0, 11),
+            random.randint(0, 4),
+            random.randint(0, 3),
+            random.randint(0, 1),
+            random.randint(0, 1)
+        ]
+        action = self.get_action(discrete_action)
+        return action, discrete_action
 
     def close(self):
         """
