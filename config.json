@@ -2,7 +2,11 @@
     "seed": null,
     "options_preset": {
       "Custom": {
-        "level": "Simple",
+        "level": {
+          "LoadFrom": {
+            "path": "levels/level.txt"
+          }
+        },
         "properties": {
           "max_tick_count": 3600,
           "team_size": 1,

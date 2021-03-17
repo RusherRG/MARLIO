@@ -89,12 +89,12 @@ def single_agent(config, verbose, gui, tensorboard, output_dir, train):
     # Import Agent Strategy
     import importlib
 
-    strategy = importlib.import_module(f"agents.agent_{config.agents_config.agents}")
+    strategy = importlib.import_module(
+        f"agents.agent_{config.agents_config.agents}")
     strategy = strategy.Strategy
 
     # Initialize Gym
     from helpers.utils import game_config_json
-
     config_json = game_config_json(config)
 
     import gym
@@ -126,18 +126,20 @@ def single_agent(config, verbose, gui, tensorboard, output_dir, train):
         step = 0
         tot_reward = 0
         while True:
-            action = agent.act(cur_state)
+            action, discrete_action = agent.act(cur_state)
             new_state, reward, done, _ = env.step(player, action)
             if done:
                 break
 
-            agent.custom_logic(cur_state, action, reward, new_state, done, episode)
+            agent.custom_logic(cur_state, discrete_action, reward,
+                               new_state, done, step)
             tensorboard.log_step(episode, step, action, reward, new_state)
 
             cur_state = new_state
             tot_reward += reward
             step += 1
-        tensorboard.log_episode(episode, step, tot_reward, done)  # add win state
+        tensorboard.log_episode(
+            episode, step, tot_reward, done)  # add win state
         if episode % agents_config.save_every == 0:
             agent.save_model(f"{agents_config.agents}_{episode}.model")
 
