@@ -9,21 +9,40 @@ import yaml
 import coloredlogs
 import logging
 import pathlib
+import os
+import time
 
 logger = logging.getLogger(__name__)
-coloredlogs.install(level='DEBUG', logger=logger)
+coloredlogs.install(level="INFO")
 
 default_output_dir = path.expanduser("~/.MARLIO-runner/")
+if not os.path.exists(default_output_dir):
+    os.makedirs(default_output_dir)
 sample_conf = "./config.yml"
 
 
-def main(config: Path = typer.Option(sample_conf, exists=True, file_okay=True, dir_okay=False, readable=True, resolve_path=True),
-         verbose: bool = typer.Option(False, "--verbose/"),
-         gui: bool = typer.Option(False, "--gui/--no-gui"),
-         tensorboard: bool = typer.Option(False, "--tensorboard"),
-         output_dir: Path = typer.Option(default_output_dir,
-                                         exists=True, file_okay=False, dir_okay=True, writable=True, resolve_path=True),
-         train: bool = typer.Option(None, "--train/--test", prompt=True)):
+def main(
+    config: Path = typer.Option(
+        sample_conf,
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        readable=True,
+        resolve_path=True,
+    ),
+    verbose: bool = typer.Option(False, "--verbose/"),
+    gui: bool = typer.Option(False, "--gui/--no-gui"),
+    tensorboard: bool = typer.Option(False, "--tensorboard"),
+    output_dir: Path = typer.Option(
+        default_output_dir,
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        writable=True,
+        resolve_path=True,
+    ),
+    train: bool = typer.Option(None, "--train/--test", prompt=True),
+):
 
     with open(config) as f:
         conf = yaml.load(f, Loader=yaml.FullLoader)
@@ -31,12 +50,18 @@ def main(config: Path = typer.Option(sample_conf, exists=True, file_okay=True, d
     logger.info("Config Loaded")
 
     if conf.game_config.agents == 1:
+        output_dir = os.path.join(output_dir, str(time.time_ns()))
+        os.makedirs(output_dir)
         single_agent(conf, verbose, gui, tensorboard, output_dir, train)
     elif conf.game_config.agents == 2:
         multi_agent(conf, verbose, gui, tensorboard, output_dir, train)
     else:
-        typer.secho("No. of agents should be either 1 or 2",
-                    fg=typer.colors.WHITE, bg=typer.colors.RED, err=True)
+        typer.secho(
+            "No. of agents should be either 1 or 2",
+            fg=typer.colors.WHITE,
+            bg=typer.colors.RED,
+            err=True,
+        )
         raise typer.Abort()
 
     return
@@ -44,47 +69,60 @@ def main(config: Path = typer.Option(sample_conf, exists=True, file_okay=True, d
 
 def single_agent(config, verbose, gui, tensorboard, output_dir, train):
     if type(config.agents_config.agents) != str:
-        typer.secho("Agent definition error",
-                    fg=typer.colors.WHITE, bg=typer.colors.RED, err=True)
+        typer.secho(
+            "Agent definition error",
+            fg=typer.colors.WHITE,
+            bg=typer.colors.RED,
+            err=True,
+        )
         raise typer.Abort()
 
-    if not path.isfile(f'./agents/agent_{config.agents_config.agents}.py'):
-        typer.secho(f"Agent strategy file './agents/agent_{config.agents_config.agents}.py' not found",
-                    fg=typer.colors.WHITE, bg=typer.colors.RED, err=True)
+    if not path.isfile(f"./agents/agent_{config.agents_config.agents}.py"):
+        typer.secho(
+            f"Agent strategy file './agents/agent_{config.agents_config.agents}.py' not found",
+            fg=typer.colors.WHITE,
+            bg=typer.colors.RED,
+            err=True,
+        )
         raise typer.Abort()
 
     # Import Agent Strategy
     import importlib
-    strategy = importlib.import_module(
-        f'agents.agent_{config.agents_config.agents}')
+
+    strategy = importlib.import_module(f"agents.agent_{config.agents_config.agents}")
     strategy = strategy.Strategy
 
     # Initialize Gym
     from helpers.utils import game_config_json
+
     config_json = game_config_json(config)
 
     import gym
     import time
+
     x = pathlib.Path(__file__).parent.absolute()
     x = str(x).replace(" ", "\\ ")
     env = gym.make("codeside:codeside-v0", config=f"{x}/config.json")
     time.sleep(2)
-
-    
 
     # Initialize Agent Strategy
     agents_config = config.agents_config
     agent = strategy(env, agents_config)
 
     # Initialize TensorBoard Logger
-    tensorboard = TensorboardLogger(config)
-
+    tensorboard = TensorboardLogger(config, output_dir)
+    replays = os.path.join(output_dir, "replays")
+    results = os.path.join(output_dir, "results")
+    os.makedirs(replays)
+    os.makedirs(results)
     # Start
     for episode in range(agents_config.episodes):
         # Spawn Our Player
-        time.sleep(2)
-        cur_state = env.reset()
+        replay = os.path.join(replays, f"ep_{episode}")
+        result = os.path.join(results, f"ep_{episode}")
+        _ = env.reset(replay, result)
         player = env.create_player(port=config.game_config.port)
+        cur_state = env.get_state(player)
         step = 0
         tot_reward = 0
         while True:
@@ -93,15 +131,13 @@ def single_agent(config, verbose, gui, tensorboard, output_dir, train):
             if done:
                 break
 
-            agent.custom_logic(cur_state, action, reward,
-                               new_state, done, episode)
+            agent.custom_logic(cur_state, action, reward, new_state, done, episode)
             tensorboard.log_step(episode, step, action, reward, new_state)
 
             cur_state = new_state
             tot_reward += reward
             step += 1
-        tensorboard.log_episode(
-            episode, step, tot_reward, done)  # add win state
+        tensorboard.log_episode(episode, step, tot_reward, done)  # add win state
         if episode % agents_config.save_every == 0:
             agent.save_model(f"{agents_config.agents}_{episode}.model")
 
