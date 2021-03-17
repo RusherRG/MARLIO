@@ -32,7 +32,7 @@ class CodeSideEnv(gym.Env):
         self.player2_name = player2_name
         self.reset()
 
-    def reset(self):
+    def reset(self, replay_path=None, result_path=None):
         """
         Reset the environment with a particular configuration and
         initialize a thread which runs the game environment
@@ -42,8 +42,11 @@ class CodeSideEnv(gym.Env):
         try:
             bin_path = Path(__file__).parent.absolute().as_posix()
             bin_path = bin_path.replace(" ", "\\ ")
-            cmd = f"{bin_path}/../../bin/aicup2019 --config {self.config} " + \
-                f"--player-names {self.player1_name} {self.player2_name}"
+            cmd = f"{bin_path}/../../bin/aicup2019 --config {self.config}" + \
+                f" --player-names {self.player1_name} {self.player2_name}" + \
+                f" --save-replay {replay_path}" + \
+                f" --save-results {result_path}" + \
+                " --batch-mode --log-level error"
             self.logger.debug(cmd)
             self.game = threading.Thread(target=os.system, args=[cmd])
             self.game.setDaemon(True)
@@ -220,25 +223,43 @@ class CodeSideEnv(gym.Env):
                     if prev_state_unit.id == unit.id:
                         # damage taken
                         if prev_state_unit.health > unit.health:
-                            reward = -(prev_state_unit.health -
-                                       unit.health)
+                            reward += -(prev_state_unit.health -
+                                        unit.health)
                         # picked a new weapon
                         if prev_state_unit.weapon is None and \
                                 unit.weapon is not None:
-                            reward = 5
+                            reward += 5
                         # picked a mine
                         if prev_state_unit.mines == 0 and unit.mines > 0:
-                            reward = 5
+                            reward += 5
                         break
             else:
-                # moving towards the opponent
-                new_distance = calc_distance(unit.position,
-                                             prev_state_unit.position)
-                if (unit.position.x > prev_state_unit.position.x) ^ \
-                        unit.walked_right:
-                    if self.prev_calc["distance"] - new_distance > 0:
-                        reward = 1
-                self.prev_calc["distance"] = new_distance
+                for prev_state_unit in prev_state.game.units:
+                    if prev_state_unit.id == unit.id:
+                        # damage done
+                        if prev_state_unit.health > unit.health:
+                            # damage by bullet
+                            prev_count = 0
+                            for prev_bullet in prev_state.game.bullets:
+                                if prev_bullet.unit_id == unit.id:
+                                    prev_count += 1
+                            for bullet in state.game.bullets:
+                                if bullet.unit_id == unit.id:
+                                    prev_count -= 1
+                            if prev_count > 0:
+                                reward += (prev_state_unit.health -
+                                           unit.health)
+                            # damage by mine
+                            prev_count = 0
+                            for prev_mine in prev_state.game.mines:
+                                if prev_mine.unit_id == unit.id:
+                                    prev_count += 1
+                            for mine in state.game.mines:
+                                if mine.unit_id == unit.id:
+                                    prev_count -= 1
+                            if prev_count > 0:
+                                reward += (prev_state_unit.health -
+                                           unit.health)
         self.total_reward += reward
         return reward
 
