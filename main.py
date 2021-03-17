@@ -107,7 +107,7 @@ def single_agent(config, verbose, gui, tensorboard, output_dir, train):
 
     # Initialize Agent Strategy
     agents_config = config.agents_config
-    agent = strategy(env, agents_config)
+    agent = strategy(env, agents_config, logger)
 
     # Initialize TensorBoard Logger
     tensorboard = TensorboardLogger(config, output_dir)
@@ -120,13 +120,14 @@ def single_agent(config, verbose, gui, tensorboard, output_dir, train):
         # Spawn Our Player
         replay = os.path.join(replays, f"ep_{episode}")
         result = os.path.join(results, f"ep_{episode}")
-        _ = env.reset(replay, result)
+        _ = env.reset(replay, result, config.game_config.batch_mode)
         player = env.create_player(port=config.game_config.port)
         cur_state = env.get_state(player)
         step = 0
         tot_reward = 0
         while True:
             action, discrete_action = agent.act(cur_state)
+            print(action, discrete_action)
             new_state, reward, done, _ = env.step(player, action)
             if done:
                 break
@@ -142,6 +143,7 @@ def single_agent(config, verbose, gui, tensorboard, output_dir, train):
             episode, step, tot_reward, done)  # add win state
         if episode % agents_config.save_every == 0:
             agent.save_model(f"{agents_config.agents}_{episode}.model")
+        logger.info(f"Episode {episode}: Total reward {tot_reward}")
 
     return
 

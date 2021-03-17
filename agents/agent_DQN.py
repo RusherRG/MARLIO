@@ -11,21 +11,25 @@ import random
 import numpy as np
 
 
-DROPOUT = 0.1
+DROPOUT = 0.2
 OUTPUT_LAYER = 18
 REPLAY_MEMORY_SIZE = 25000
 MINIBATCH_SIZE = 64
 DISCOUNT = 0.95
-UPDATE_TARGET_EVERY = 100
+UPDATE_TARGET_EVERY = 1000
 EPSILON = 1
 
 
 class Strategy:
-    def __init__(self, env, config):
+    def __init__(self, env, config, logger):
         self.env = env
         self.config = config
+        self.logger = logger
 
+        self.frame_count = 0
+        self.action_count = 0
         self.memory = deque(maxlen=2000)
+        self.logger.info("Create model and target model")
         self.model = self.create_model()
         self.target_model = self.create_model()
 
@@ -108,7 +112,9 @@ class Strategy:
 
         current_q_values = self.model.predict(np.array([input_state]))
         if np.random.random() > self.epsilon:
-            discrete_action = [np.argmax(q_values[0]) for q_values in current_q_values]
+            self.action_count += 1
+            discrete_action = [np.argmax(q_values[0])
+                               for q_values in current_q_values]
             action = self.env.get_action(discrete_action)
         else:
             action, discrete_action = self.env.sample_action()
@@ -149,7 +155,9 @@ class Strategy:
         for i in range(len(action)):
             Y[i] = np.array(Y[i])
 
-        self.model.fit(np.array(X), Y, batch_size=self.batch_size)
+        self.model.fit(np.array(X), Y,
+                       batch_size=self.batch_size,
+                       epochs=self.config.epochs)
         return
 
     def update_target_model(self):
@@ -162,17 +170,22 @@ class Strategy:
                       self.preprocess(new_state), done)
 
         # target train every x steps
-        if step % 64 == 0:
-            print("training")
+        if self.frame_count % 16 == 0:
+            self.logger.info(f"#Predicted actions: {self.action_count}")
+            self.action_count = 0
+
+            self.logger.info("Training model")
             self.train()
 
-        if step % self.update_target_every == 0:
-            print("update model")
+        if self.frame_count % self.update_target_every == 0:
+            self.logger.info("Updating target model")
             self.update_target_model()
 
         # epsilon decay
         if self.epsilon > 0.1:
             self.epsilon -= self.epsilon_decay_value
+        
+        self.frame_count += 1
         return
 
     def save_model(self, fn):
