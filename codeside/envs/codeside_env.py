@@ -88,8 +88,8 @@ class CodeSideEnv(gym.Env):
                 reduced_state["opp_score"] = player["score"]
 
         tile_range = 3
-        level_size_x = len(state["game"]["level"]["tiles"][0])
-        level_size_y = len(state["game"]["level"]["tiles"])
+        level_size_x = len(state["game"]["level"]["tiles"])
+        level_size_y = len(state["game"]["level"]["tiles"][0])
 
         for unit in state["game"].get("units", []):
             if unit.get("weapon") is None:
@@ -111,21 +111,21 @@ class CodeSideEnv(gym.Env):
                 unit.get("weapon", {}).get("last_angle", 0),
             ]
 
-            x = math.floor(observation[1])
-            y = math.ceil(observation[2])
+            x = math.floor(observation[2])
+            y = math.ceil(observation[3])
             tiles = []
-            for yy in range(y-tile_range, y+tile_range+1):
-                if yy < 0 or yy >= level_size_y:
-                    tiles.append([0]*level_size_x)
+            for xx in range(x-tile_range, x+tile_range+1):
+                if xx < 0 or xx >= level_size_x:
+                    tiles.append([0]*(2*tile_range+1))
                     continue
-                tiles_x = []
-                for xx in range(x-tile_range, x+tile_range+1):
-                    if xx < 0 or xx >= level_size_x:
-                        tiles_x.append(0)
+                tiles_y = []
+                for yy in range(y-tile_range, y+tile_range+1):
+                    if yy < 0 or yy >= level_size_y:
+                        tiles_y.append(0)
                     else:
-                        tiles_x.append(state["game"]["level"]
-                                       ["tiles"][yy][xx]["value"])
-                tiles.append(tiles_x)
+                        tiles_y.append(state["game"]["level"]["tiles"]
+                                       [xx][yy]["value"])
+                tiles.append(tiles_y)
             observation.append(tiles)
 
             if unit["player_id"] == reduced_state["player_id"]:
@@ -229,6 +229,8 @@ class CodeSideEnv(gym.Env):
                         if prev_state_unit.health > unit.health:
                             reward += -(prev_state_unit.health -
                                         unit.health)
+                        else:
+                            reward += (unit.health - prev_state_unit.health)
                         # picked a new weapon
                         if prev_state_unit.weapon is None and \
                                 unit.weapon is not None:
