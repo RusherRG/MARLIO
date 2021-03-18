@@ -1,5 +1,5 @@
 class Strategy:
-    def __init__(self, env, config):
+    def __init__(self, env, config, logger):
         self.env = env
         self.config = config
         raise NotImplementedError
