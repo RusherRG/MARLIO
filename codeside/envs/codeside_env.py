@@ -40,14 +40,14 @@ class CodeSideEnv(gym.Env):
         if not batch_mode:
             self.close()
         self.logger.debug("Setting up environment")
+        self.prev_state = None
         try:
             bin_path = Path(__file__).parent.absolute().as_posix()
             bin_path = bin_path.replace(" ", "\\ ")
             cmd = f"{bin_path}/../../bin/aicup2019 --config {self.config}" + \
                 f" --player-names {self.player1_name} {self.player2_name}" + \
                 f" --save-replay {replay_path}" + \
-                f" --save-results {result_path}" + \
-                " --log-level error"
+                f" --save-results {result_path}"
             if batch_mode:
                 cmd += " --batch-mode"
             self.logger.debug(cmd)
@@ -170,7 +170,7 @@ class CodeSideEnv(gym.Env):
             minee = [
                 mine["position"]["x"],
                 mine["position"]["y"],
-                mine["state"],
+                mine["state"]["value"],
                 mine["timer"],
                 mine["trigger_radius"]
             ]
