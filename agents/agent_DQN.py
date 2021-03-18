@@ -120,6 +120,11 @@ class Strategy:
         for _ in range(prev_len, 132):
             input_state.append(0)
         input_state = input_state[:132]
+        
+        for i in range(len(input_state)):
+            if input_state[i] is None or type(input_state[i]) == dict:
+                input_state[i] = 0
+
         return np.array(input_state).reshape(1, -1)
 
     def act(self, state):

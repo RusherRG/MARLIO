@@ -119,6 +119,9 @@ class Strategy:
         prev_len = len(input_state)
         for _ in range(prev_len, 85):
             input_state.append(0)
+        for i in range(len(input_state)):
+            if input_state[i] is None or type(input_state[i]) == dict:
+                input_state[i] = 0
         input_state = input_state[:85]
         return np.array(input_state).reshape(1, -1)
 
