@@ -13,7 +13,7 @@ class TensorboardLogger:
         )
         return
 
-    def log_step(self, episode, step, action, reward, new_state):
+    def log_step(self, episode, step, action, reward):
         with self.ep_writer.as_default():
             tf.summary.scalar(name="reward", data=reward, step=step)
         return

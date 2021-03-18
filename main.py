@@ -135,7 +135,7 @@ def single_agent(config, verbose, gui, tensorboard, output_dir, train):
             logger.debug(action)
             logger.debug(discrete_action)
             new_state, reward, done, _ = env.step(player, action)
-            tensorboard.log_step(episode, step, action, reward, new_state)
+            tensorboard.log_step(episode, step, action, reward)
             
             if done:
                 break
