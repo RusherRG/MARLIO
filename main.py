@@ -113,7 +113,6 @@ def single_agent(config, verbose, gui, tensorboard, output_dir, train):
     agent = strategy(env, agents_config, logger)
 
     # Initialize TensorBoard Logger
-    tensorboard = TensorboardLogger(config, output_dir)
     replays = os.path.join(output_dir, "replays")
     results = os.path.join(output_dir, "results")
     models = os.path.join(output_dir, "models")
@@ -125,6 +124,7 @@ def single_agent(config, verbose, gui, tensorboard, output_dir, train):
         # Spawn Our Player
         replay = os.path.join(replays, f"ep_{episode}")
         result = os.path.join(results, f"ep_{episode}")
+        tensorboard = TensorboardLogger(config, output_dir)
         _ = env.reset(replay, result, config.game_config.batch_mode)
         player = env.create_player(port=config.game_config.port)
         cur_state = env.get_state(player)
