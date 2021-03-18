@@ -258,10 +258,10 @@ class CodeSideEnv(gym.Env):
                             # damage by mine
                             prev_count = 0
                             for prev_mine in prev_state.game.mines:
-                                if prev_mine.unit_id != unit.id:
+                                if prev_mine.player_id != unit.player_id:
                                     prev_count += 1
                             for mine in state.game.mines:
-                                if mine.unit_id != unit.id:
+                                if mine.player_id != unit.player_id:
                                     prev_count -= 1
                             if prev_count > 0:
                                 reward += (prev_state_unit.health -
