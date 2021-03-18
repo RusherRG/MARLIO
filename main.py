@@ -13,7 +13,7 @@ import os
 import time
 
 logger = logging.getLogger(__name__)
-coloredlogs.install(level="INFO")
+coloredlogs.install(level="DEBUG")
 
 default_output_dir = path.expanduser("~/.MARLIO-runner/")
 if not os.path.exists(default_output_dir):
@@ -129,7 +129,8 @@ def single_agent(config, verbose, gui, tensorboard, output_dir, train):
         tot_reward = 0
         while True:
             action, discrete_action = agent.act(cur_state)
-            print(action, discrete_action)
+            logger.debug(action)
+            logger.debug(discrete_action)
             new_state, reward, done, _ = env.step(player, action)
             if done:
                 break

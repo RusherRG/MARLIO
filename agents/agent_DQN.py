@@ -66,7 +66,7 @@ class Strategy:
         return x
 
     def create_model(self):
-        input_shape = (1, 108)
+        input_shape = (1, 132)
         inputs = Input(shape=input_shape)
         x = Dense(64, activation="relu")(inputs)
         x = Dense(32, activation="relu")(inputs)
@@ -89,10 +89,14 @@ class Strategy:
         input_state.extend(state["units"][0][1:-1])
         input_state.extend(state["opp_units"][0][1:-1])
 
-        closest_bullet = [0] * 8
-        min_dist = 10**9 + 7
+        for tiles in state["units"][0][-1]:
+            input_state.extend(tiles)
+
         unit_x = state["units"][0][1]
         unit_y = state["units"][0][2]
+
+        closest_bullet = [0] * 8
+        min_dist = 10**9 + 7
         for bullet in state["bullets"]:
             dist = (bullet[0] - unit_x)**2 + (bullet[1] - unit_y)**2
             if dist < min_dist:
@@ -100,15 +104,29 @@ class Strategy:
                 closest_bullet = bullet
         input_state.extend(closest_bullet)
 
-        for loot in state["loot_boxes"]:
+        closest_mine = [0] * 7
+        min_dist = 10**9 + 7
+        for mine in state["mines"]:
+            dist = (mine[0] - unit_x)**2 + (mine[1] - unit_y)**2
+            if dist < min_dist:
+                min_dist = dist
+                closest_mine = mine
+        input_state.extend(closest_mine)
+
+        for loot in state["loot_boxes"][:10]:
             input_state.extend(loot)
+
         prev_len = len(input_state)
-        for _ in range(prev_len, 108):
+        for _ in range(prev_len, 132):
             input_state.append(0)
+        input_state = input_state[:132]
         return np.array(input_state).reshape(1, -1)
 
     def act(self, state):
+        self.logger.debug(state[0])
         input_state = self.preprocess(state)
+        self.logger.debug(input_state)
+        self.logger.debug(input_state.shape)
 
         current_q_values = self.model.predict(np.array([input_state]))
         if np.random.random() > self.epsilon:
@@ -171,7 +189,8 @@ class Strategy:
 
         # target train every x steps
         if self.frame_count % 16 == 0:
-            self.logger.info(f"#Predicted actions: {self.action_count}")
+            self.logger.info(f"#Predicted actions: {self.action_count}" +
+                             f" | #epsteps: {step}")
             self.action_count = 0
 
             self.logger.info("Training model")
@@ -184,7 +203,7 @@ class Strategy:
         # epsilon decay
         if self.epsilon > 0.1:
             self.epsilon -= self.epsilon_decay_value
-        
+
         self.frame_count += 1
         return
 

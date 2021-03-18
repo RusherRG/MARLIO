@@ -1,10 +1,10 @@
 {
-    "seed": null,
+    "seed": 11048537183930315083,
     "options_preset": {
       "Custom": {
         "level": {
           "LoadFrom": {
-            "path": "levels/level.txt"
+            "path": "./levels/level.txt"
           }
         },
         "properties": {
