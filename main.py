@@ -41,6 +41,7 @@ def main(
         writable=True,
         resolve_path=True,
     ),
+    exp_name: str = typer.Option(None, prompt=True),
     train: bool = typer.Option(None, "--train/--test", prompt=True),
 ):
 
@@ -50,7 +51,7 @@ def main(
     logger.info("Config Loaded")
 
     if conf.game_config.agents == 1:
-        output_dir = os.path.join(output_dir, str(time.time_ns()))
+        output_dir = os.path.join(output_dir, exp_name)
         os.makedirs(output_dir)
         single_agent(conf, verbose, gui, tensorboard, output_dir, train)
     elif conf.game_config.agents == 2:
@@ -98,7 +99,6 @@ def single_agent(config, verbose, gui, tensorboard, output_dir, train):
     config_json = game_config_json(config)
 
     import gym
-    import time
 
     x = pathlib.Path(__file__).parent.absolute()
     x = str(x).replace(" ", "\\ ")
