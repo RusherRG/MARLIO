@@ -11,6 +11,7 @@ import logging
 import pathlib
 import os
 import time
+import shutil
 
 logger = logging.getLogger(__name__)
 coloredlogs.install(level="DEBUG")
@@ -52,6 +53,8 @@ def main(
 
     if conf.game_config.agents == 1:
         output_dir = os.path.join(output_dir, expname)
+        if os.path.exists(output_dir):
+            shutil.rmtree(output_dir)
         os.makedirs(output_dir)
         single_agent(conf, verbose, gui, tensorboard, output_dir, train)
     elif conf.game_config.agents == 2:
