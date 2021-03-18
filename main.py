@@ -41,7 +41,7 @@ def main(
         writable=True,
         resolve_path=True,
     ),
-    exp_name: str = typer.Option(None, prompt=True),
+    expname: str = typer.Option(None, prompt=True),
     train: bool = typer.Option(None, "--train/--test", prompt=True),
 ):
 
@@ -51,7 +51,7 @@ def main(
     logger.info("Config Loaded")
 
     if conf.game_config.agents == 1:
-        output_dir = os.path.join(output_dir, exp_name)
+        output_dir = os.path.join(output_dir, expname)
         os.makedirs(output_dir)
         single_agent(conf, verbose, gui, tensorboard, output_dir, train)
     elif conf.game_config.agents == 2:
