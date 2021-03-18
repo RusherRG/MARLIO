@@ -21,6 +21,7 @@ class CodeSideEnv(gym.Env):
     def __init__(self, config="./levels/config_simple.json", player1_name="Player1", player2_name="Player2"):
         self.logger = get_logger(__name__)
         self.prev_state = None
+        self.prev_prev_state = None
         self.prev_calc = {
             "distance": 10**9+7
         }
@@ -44,7 +45,7 @@ class CodeSideEnv(gym.Env):
         try:
             bin_path = Path(__file__).parent.absolute().as_posix()
             bin_path = bin_path.replace(" ", "\\ ")
-            cmd = f"{bin_path}/../../bin/aicup2019 --config {self.config}" + \
+            cmd = f"/home/rusherrg/Projects/raic-2019/app-src/target/debug/aicup2019 --config {self.config}" + \
                 f" --player-names {self.player1_name} {self.player2_name}" + \
                 f" --save-replay {replay_path}" + \
                 f" --save-results {result_path}"
@@ -190,6 +191,8 @@ class CodeSideEnv(gym.Env):
         Fetch the state observations from the environment
         """
         message = ServerMessageGame.read_from(agent.reader)
+        # print(message)
+        # print(message.player_view)
         if message.player_view is None:
             return None, None, None
         player_view = message.player_view
@@ -220,7 +223,35 @@ class CodeSideEnv(gym.Env):
         """
         reward = 0
         if prev_state is None:
-            return reward
+            return 0
+
+        # last_reward
+        if state is None:
+            my_score = 0
+            opp_score = 0
+            for player in prev_state.game.players:
+                if player.id == prev_state.my_id:
+                    my_score = player.score
+                else:
+                    opp_score = player.score
+
+            score_reward = 100 if my_score > opp_score else -100
+
+            for prev_state_unit in self.prev_prev_state.game.units:
+                for unit in prev_state.game.units:
+                    if prev_state_unit.id == unit.id:
+                        break
+                else:
+                    if prev_state_unit.player_id == prev_state.my_id:
+                        reward -= prev_state_unit.health
+                    else:
+                        reward += prev_state_unit.health
+
+            return score_reward + reward
+
+        # shooting in correct direction
+        
+
         for unit in state.game.units:
             if unit.player_id == state.my_id:
                 for prev_state_unit in prev_state.game.units:
@@ -285,13 +316,13 @@ class CodeSideEnv(gym.Env):
 
         # Get state observations
         reduced_state, state, player_view = self.get_state(agent)
-        if state is not None:
-            reward = self.get_reward(player_view, self.prev_state)
-            self.logger.debug(f"Reward: {reward}")
-            self.prev_state = player_view
-            self.steps += 1
-            return [reduced_state, state, player_view], reward, False, None
-        return None, None, True, None
+        reward = self.get_reward(player_view, self.prev_state)
+        self.logger.debug(f"Reward: {reward}")
+        self.prev_prev_state = self.prev_state
+        self.prev_state = player_view
+        done = state is None
+        self.steps += 1
+        return [reduced_state, state, player_view], reward, done, None
 
     def sample_space(self):
         """
