@@ -1,0 +1,50 @@
+version: '3.0'
+
+services:
+  epoch10:
+    build: .
+    entrypoint: python3 main.py --expname=epoch10 --train
+    volumes:
+      - ./exps/:/root/.MARLIO-runner/
+      - ./configs/epoch10/config.yml:/MARLIO-runner/config.yml
+      - ./configs/epoch10/config.json:/MARLIO-runner/config.json
+  
+  level11:
+    build: .
+    entrypoint: python3 main.py --expname=level11 --train
+    volumes:
+      - ./exps/:/root/.MARLIO-runner/
+      - ./configs/level11/config.yml:/MARLIO-runner/config.yml
+      - ./configs/level11/config.json:/MARLIO-runner/config.json
+
+  with-seed:
+    build: .
+    entrypoint: python3 main.py --expname=withseed --train
+    volumes:
+      - ./exps/:/root/.MARLIO-runner/
+      - ./configs/with-seed/config.yml:/MARLIO-runner/config.yml
+      - ./configs/with-seed/config.json:/MARLIO-runner/config.json
+  
+  without-seed:
+    build: .
+    entrypoint: python3 main.py --expname=withoutseed --train
+    volumes:
+      - ./exps/:/root/.MARLIO-runner/
+      - ./configs/without-seed/config.yml:/MARLIO-runner/config.yml
+      - ./configs/without-seed/config.json:/MARLIO-runner/config.json
+
+  without-explosion:
+    build: .
+    entrypoint: python3 main.py --expname=woexplosion --train
+    volumes:
+      - ./exps/:/root/.MARLIO-runner/
+      - ./configs/without-explosion/config.yml:/MARLIO-runner/config.yml
+      - ./configs/without-explosion/config.json:/MARLIO-runner/config.json
+  
+  without-neigh:
+    build: .
+    entrypoint: python3 main.py --expname=withoutneigh --train
+    volumes:
+      - ./exps/:/root/.MARLIO-runner/
+      - ./configs/without-neigh/config.yml:/MARLIO-runner/config.yml
+      - ./configs/without-neigh/config.json:/MARLIO-runner/config.json
