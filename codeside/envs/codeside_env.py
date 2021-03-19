@@ -45,10 +45,11 @@ class CodeSideEnv(gym.Env):
         try:
             bin_path = Path(__file__).parent.absolute().as_posix()
             bin_path = bin_path.replace(" ", "\\ ")
-            cmd = f"/home/rusherrg/Projects/raic-2019/app-src/target/debug/aicup2019 --config {self.config}" + \
+            cmd = f"{bin_path}/../../bin/aicup2019 --config {self.config}" + \
                 f" --player-names {self.player1_name} {self.player2_name}" + \
                 f" --save-replay {replay_path}" + \
-                f" --save-results {result_path}"
+                f" --save-results {result_path}" + \
+                f" --log-level error"
             if batch_mode:
                 cmd += " --batch-mode"
             self.logger.debug(cmd)
