@@ -11,4 +11,6 @@ agents_config:
   mode: train
   episodes: 1000
   epochs: 10
+  update_every: 1000
+  epsilon_decay: 0.00001
   save_every: 20

@@ -72,7 +72,10 @@
                 "size": 0.4,
                 "damage": 30
               },
-              "explosion": null
+              "explosion": {
+                "radius": 3.0,
+                "damage": 50
+              }
             }
           },
           "mine_size": {
