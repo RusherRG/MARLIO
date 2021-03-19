@@ -247,8 +247,13 @@ class CodeSideEnv(gym.Env):
 
             return score_reward + reward
 
-        # shooting in correct direction
-        
+        new_bullet = None
+        for bullet in state.game.bullets:
+            for prev_bullet in self.prev_state.game.bullets:
+                if bullet.unit_id == prev_bullet.unit_id:
+                    break
+            else:
+                new_bullet = bullet
 
         for unit in state.game.units:
             if unit.player_id == state.my_id:
@@ -295,6 +300,32 @@ class CodeSideEnv(gym.Env):
                             if prev_count > 0:
                                 reward += (prev_state_unit.health -
                                            unit.health)
+
+                    # Shooting bullet in correct direction
+                    if new_bullet is not None:
+                        if unit.position.x-prev_state_unit.position.x == 0:
+                            if unit.position.y > prev_state_unit.position.y:
+                                unit_opp_unit_angle = 90
+                            else:
+                                unit_opp_unit_angle = -90
+                        else:
+                            unit_opp_unit_angle = math.degrees(math.atan(
+                                (unit.position.y-prev_state_unit.position.y) /
+                                (unit.position.x-prev_state_unit.position.x)))
+
+                        if unit.position.x-new_bullet.position.x == 0:
+                            if unit.position.y > new_bullet.position.y:
+                                unit_bullet_angle = 90
+                            else:
+                                unit_bullet_angle = -90
+                        else:
+                            unit_bullet_angle = math.degrees(math.atan(
+                                (unit.position.y-new_bullet.position.y) /
+                                (unit.position.x-new_bullet.position.x)))
+                        if abs(
+                                unit_opp_unit_angle-unit_bullet_angle) < 20:
+                            reward += 1
+
         self.total_reward += reward
         return reward
 
