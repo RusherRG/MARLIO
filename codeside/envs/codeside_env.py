@@ -191,8 +191,6 @@ class CodeSideEnv(gym.Env):
         Fetch the state observations from the environment
         """
         message = ServerMessageGame.read_from(agent.reader)
-        # print(message)
-        # print(message.player_view)
         if message.player_view is None:
             return None, None, None
         player_view = message.player_view
