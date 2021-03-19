@@ -133,3 +133,5 @@ logs/
 log/
 
 .vscode/
+
+data/*
