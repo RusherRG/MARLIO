@@ -6,6 +6,7 @@ from tensorflow.keras.layers import Conv1D
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import Dropout
 from tensorflow.keras.layers import Activation
+from tensorflow.keras.callbacks import TensorBoard
 import math
 import random
 import numpy as np
@@ -21,13 +22,16 @@ EPSILON = 1
 
 
 class Strategy:
-    def __init__(self, env, config, logger):
+    def __init__(self, env, config, logger, logdir):
         self.env = env
         self.config = config
         self.logger = logger
+        self.logdir = f"{logdir}/logs"
+        self.tensorboard_callback = TensorBoard(log_dir=self.logdir)
 
         self.frame_count = 0
         self.action_count = 0
+        self.epoch_count = 0
         self.memory = deque(maxlen=2000)
         self.logger.info("Create model and target model")
         self.model = self.create_model()
@@ -36,9 +40,8 @@ class Strategy:
         self.epsilon = EPSILON
         self.discount = DISCOUNT
         self.batch_size = MINIBATCH_SIZE
-        self.update_target_every = UPDATE_TARGET_EVERY
-
-        self.epsilon_decay_value = 0.00003
+        self.update_target_every = self.config.update_every
+        self.epsilon_decay_value = self.config.epsilon_decay
 
     def build_aim_branch(self, x):
         x = Dropout(DROPOUT)(x)
@@ -86,12 +89,17 @@ class Strategy:
     def preprocess(self, state):
         state = state[0]
         input_state = [state["player_score"], state["opp_score"]]
+        
+        if len(state["units"]) == 0 or len(state["opp_units"]) == 0:
+            input_state.extend([0]*130)
+            return np.array(input_state).reshape(1, -1)
+
         input_state.extend(state["units"][0][1:-1])
         input_state.extend(state["opp_units"][0][1:-1])
-
+        
         for tiles in state["units"][0][-1]:
             input_state.extend(tiles)
-
+        
         unit_x = state["units"][0][1]
         unit_y = state["units"][0][2]
 
@@ -120,7 +128,7 @@ class Strategy:
         for _ in range(prev_len, 132):
             input_state.append(0)
         input_state = input_state[:132]
-        
+
         for i in range(len(input_state)):
             if input_state[i] is None or type(input_state[i]) == dict:
                 input_state[i] = 0
@@ -180,7 +188,10 @@ class Strategy:
 
         self.model.fit(np.array(X), Y,
                        batch_size=self.batch_size,
-                       epochs=self.config.epochs)
+                       epochs=self.epoch_count+self.config.epochs,
+                       initial_epoch=self.epoch_count,
+                       callbacks=[self.tensorboard_callback])
+        self.epoch_count += self.config.epochs
         return
 
     def update_target_model(self):

@@ -110,12 +110,13 @@ def single_agent(config, verbose, gui, tensorboard, output_dir, train):
 
     # Initialize Agent Strategy
     agents_config = config.agents_config
-    agent = strategy(env, agents_config, logger)
+    agent = strategy(env, agents_config, logger, output_dir)
 
     # Initialize TensorBoard Logger
     replays = os.path.join(output_dir, "replays")
     results = os.path.join(output_dir, "results")
     models = os.path.join(output_dir, "models")
+    tensorboard = TensorboardLogger(config, output_dir)
     os.makedirs(replays)
     os.makedirs(results)
     os.makedirs(models)
@@ -124,7 +125,6 @@ def single_agent(config, verbose, gui, tensorboard, output_dir, train):
         # Spawn Our Player
         replay = os.path.join(replays, f"ep_{episode}")
         result = os.path.join(results, f"ep_{episode}")
-        tensorboard = TensorboardLogger(config, output_dir)
         _ = env.reset(replay, result, config.game_config.batch_mode)
         player = env.create_player(port=config.game_config.port)
         cur_state = env.get_state(player)
@@ -135,10 +135,13 @@ def single_agent(config, verbose, gui, tensorboard, output_dir, train):
             logger.debug(action)
             logger.debug(discrete_action)
             new_state, reward, done, _ = env.step(player, action)
+            tensorboard.log_step(episode, step, action, reward)
             if done:
+                input()
+                print(cur_state)
+                input()
                 break
 
-            tensorboard.log_step(episode, step, action, reward)
             agent.custom_logic(cur_state, discrete_action, reward,
                                new_state, done, step)
             cur_state = new_state

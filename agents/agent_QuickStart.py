@@ -5,7 +5,7 @@ from helpers import model
 
 
 class Strategy:
-    def __init__(self, env, config, logger):
+    def __init__(self, env, config, logger, logdir):
         self.env = env
         self.config = config
 
@@ -14,7 +14,7 @@ class Strategy:
         for unit in player_view.game.units:
             if unit.player_id == player_view.my_id:
                 action = self.get_action(unit, player_view.game)
-        return action
+        return action, action
 
     def get_action(self, unit, game):
         # Replace this code with your own
