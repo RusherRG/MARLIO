@@ -12,12 +12,9 @@ import random
 import numpy as np
 
 
-DROPOUT = 0.2
-OUTPUT_LAYER = 18
-REPLAY_MEMORY_SIZE = 25000
+TRAIN_EVERY = 8
 MINIBATCH_SIZE = 64
-DISCOUNT = 0.95
-UPDATE_TARGET_EVERY = 10000
+DISCOUNT = 0.99
 EPSILON = 1
 
 
@@ -26,13 +23,11 @@ class Strategy:
         self.env = env
         self.config = config
         self.logger = logger
-        self.logdir = f"{logdir}/logs"
-        self.tensorboard_callback = TensorBoard(log_dir=self.logdir)
 
         self.frame_count = 0
         self.action_count = 0
         self.epoch_count = 0
-        self.memory = deque(maxlen=2000)
+        self.memory = deque(maxlen=10000)
         self.logger.info("Create model and target model")
         self.model = self.create_model()
         self.target_model = self.create_model()
@@ -40,45 +35,43 @@ class Strategy:
         self.epsilon = EPSILON
         self.discount = DISCOUNT
         self.batch_size = MINIBATCH_SIZE
+        self.train_every = TRAIN_EVERY
         self.update_target_every = self.config.update_every
         self.epsilon_decay_value = self.config.epsilon_decay
 
-    def build_aim_branch(self, x):
-        x = Dropout(DROPOUT)(x)
-        x = Dense(12, activation="linear", name="aim_output")(x)
+    def build_branch(self, x, n_outputs, name):
+        x = Dense(32, activation="relu")(x)
+        x = Dense(n_outputs, name=f"{name}_output")(x)
         return x
 
     def build_velocity_branch(self, x):
-        x = Dropout(DROPOUT)(x)
-        x = Dense(5, activation="linear", name="velocity_output")(x)
+        x = Dense(5, name="velocity_output")(x)
         return x
 
     def build_action_branch(self, x):
-        x = Dropout(DROPOUT)(x)
-        x = Dense(4, activation="linear", name="action_output")(x)
+        x = Dense(4, name="action_output")(x)
         return x
 
     def build_jump_branch(self, x):
-        x = Dropout(DROPOUT)(x)
-        x = Dense(2, activation="linear", name="jump_output")(x)
+        x = Dense(2, name="jump_output")(x)
         return x
 
     def build_jump_down_branch(self, x):
-        x = Dropout(DROPOUT)(x)
-        x = Dense(2, activation="linear", name="jump_down_output")(x)
+        x = Dense(2, name="jump_down_output")(x)
         return x
 
     def create_model(self):
         input_shape = (1, 132)
         inputs = Input(shape=input_shape)
+        x = Dense(256, activation="relu")(inputs)
+        x = Dense(128, activation="relu")(inputs)
         x = Dense(64, activation="relu")(inputs)
-        x = Dense(32, activation="relu")(inputs)
 
-        aim = self.build_aim_branch(x)
-        velocity = self.build_velocity_branch(x)
-        action = self.build_action_branch(x)
-        jump = self.build_jump_branch(x)
-        jump_down = self.build_jump_down_branch(x)
+        aim = self.build_branch(x, 12, "aim")
+        velocity = self.build_branch(x, 5, "velocity")
+        action = self.build_branch(x, 4, "action")
+        jump = self.build_branch(x, 2, "jump")
+        jump_down = self.build_branch(x, 2, "jump_down")
 
         model = Model(inputs=inputs, outputs=[
                       aim, velocity, action, jump, jump_down])
@@ -136,12 +129,15 @@ class Strategy:
         return np.array(input_state).reshape(1, -1)
 
     def act(self, state):
+        self.logger.debug("State")
         self.logger.debug(state[0])
         input_state = self.preprocess(state)
         self.logger.debug(input_state)
         self.logger.debug(input_state.shape)
 
         current_q_values = self.model.predict(np.array([input_state]))
+        self.logger.debug("Action")
+        self.logger.debug(current_q_values)
         if np.random.random() > self.epsilon:
             self.action_count += 1
             discrete_action = [np.argmax(q_values[0])
@@ -189,8 +185,7 @@ class Strategy:
         self.model.fit(np.array(X), Y,
                        batch_size=self.batch_size,
                        epochs=self.epoch_count+self.config.epochs,
-                       initial_epoch=self.epoch_count,
-                       callbacks=[self.tensorboard_callback])
+                       initial_epoch=self.epoch_count)
         self.epoch_count += self.config.epochs
         return
 
@@ -204,7 +199,7 @@ class Strategy:
                       self.preprocess(new_state), done)
 
         # target train every x steps
-        if self.frame_count % 16 == 0:
+        if self.frame_count % self.train_every == 0:
             self.logger.info(f"#Predicted actions: {self.action_count}" +
                              f" | #epsteps: {step}")
             self.action_count = 0

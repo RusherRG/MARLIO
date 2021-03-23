@@ -7,10 +7,10 @@ game_config:
   port: 31000
 
 agents_config:
-  agents: DQNNT
+  agents: DQN
   mode: train
   episodes: 1000
-  epochs: 5
+  epochs: 1
   update_every: 1000
   epsilon_decay: 0.00001
   save_every: 20
