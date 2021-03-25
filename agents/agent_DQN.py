@@ -1,21 +1,16 @@
 from collections import deque
 import tensorflow as tf
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input
-from tensorflow.keras.layers import Conv1D
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import Dropout
-from tensorflow.keras.layers import Activation
+from tensorflow.keras.models import Model, load_model
+from tensorflow.keras.layers import Dense, Input
 from tensorflow.keras.callbacks import TensorBoard
 import math
 import random
 import numpy as np
 
 
-TRAIN_EVERY = 8
-MINIBATCH_SIZE = 64
+TRAIN_EVERY = 16
+MINIBATCH_SIZE = 32
 DISCOUNT = 0.99
-EPSILON = 1
 
 
 class Strategy:
@@ -28,16 +23,23 @@ class Strategy:
         self.action_count = 0
         self.epoch_count = 0
         self.memory = deque(maxlen=10000)
-        self.logger.info("Create model and target model")
-        self.model = self.create_model()
-        self.target_model = self.create_model()
 
-        self.epsilon = EPSILON
+        self.epsilon = self.config.epsilon
         self.discount = DISCOUNT
         self.batch_size = MINIBATCH_SIZE
         self.train_every = TRAIN_EVERY
         self.update_target_every = self.config.update_every
         self.epsilon_decay_value = self.config.epsilon_decay
+
+        if self.config.model_path is None:
+            self.logger.info("Create model and target model")
+            self.model = self.create_model()
+            self.target_model = self.create_model()
+            self.update_target_model()
+        else:
+            self.logger.info("Loading model and target model")
+            self.model = self.load_model(self.config.model_path)
+            self.target_model = self.load_model(self.config.model_path)
 
     def build_branch(self, x, n_outputs, name):
         x = Dense(32, activation="relu")(x)
@@ -77,6 +79,10 @@ class Strategy:
                       aim, velocity, action, jump, jump_down])
         model.compile(optimizer='Adam',
                       loss='MSE', metrics=['accuracy'])
+        return model
+
+    def load_model(self, model_path):
+        model = load_model(model_path)
         return model
 
     def preprocess(self, state):

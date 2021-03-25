@@ -123,7 +123,7 @@ def single_agent(config, verbose, gui, tensorboard, output_dir, train):
     os.makedirs(results)
     os.makedirs(models)
     # Start
-    for episode in range(agents_config.episodes):
+    for episode in range(agents_config.start_episode, agents_config.episodes):
         # Spawn Our Player
         replay = os.path.join(replays, f"ep_{episode}")
         result = os.path.join(results, f"ep_{episode}")
