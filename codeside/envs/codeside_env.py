@@ -234,7 +234,7 @@ class CodeSideEnv(gym.Env):
                 else:
                     opp_score = player.score
 
-            score_reward = 100 if my_score > opp_score else -100
+            score_reward = 10 if my_score > opp_score else -10
 
             for prev_state_unit in self.prev_prev_state.game.units:
                 for unit in prev_state.game.units:
@@ -325,7 +325,7 @@ class CodeSideEnv(gym.Env):
                                 (unit.position.x-new_bullet.position.x)))
                         if abs(
                                 unit_opp_unit_angle-unit_bullet_angle) < 20:
-                            reward += 1
+                            reward += 2
 
         self.total_reward += reward
         return reward
