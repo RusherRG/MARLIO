@@ -9,53 +9,19 @@ services:
     ports:
       - 9999:8080
 
-  update1000:
-    build: .
-    entrypoint: python3 main.py --expname=update1000 --train
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 1024M
-        reservations:
-          cpus: '0.5'
-          memory: 512M
-    volumes:
-      - ./exps/:/root/.MARLIO-runner/
-      - ./configs/set3/update1000/config.yml:/MARLIO-runner/config.yml
-      - ./configs/set3/update1000/config.json:/MARLIO-runner/config.json
-
   update5000:
     build: .
     entrypoint: python3 main.py --expname=update5000 --train
     deploy:
       resources:
         limits:
-          cpus: '2'
+          cpus: '1'
           memory: 1024M
-        reservations:
-          cpus: '0.5'
-          memory: 512M
     volumes:
       - ./exps/:/root/.MARLIO-runner/
       - ./configs/set3/update5000/config.yml:/MARLIO-runner/config.yml
       - ./configs/set3/update5000/config.json:/MARLIO-runner/config.json
-
-  update5000_decay:
-    build: .
-    entrypoint: python3 main.py --expname=update5000_decay --train
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 1024M
-        reservations:
-          cpus: '0.5'
-          memory: 512M
-    volumes:
-      - ./exps/:/root/.MARLIO-runner/
-      - ./configs/set3/update5000_decay/config.yml:/MARLIO-runner/config.yml
-      - ./configs/set3/update5000_decay/config.json:/MARLIO-runner/config.json
+      - ./exps/update5000/ep_380.model:/MARLIO-runner/ep_380.model
 
   update5000_withexplosion:
     build: .
@@ -63,12 +29,36 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
+          cpus: '1'
           memory: 1024M
-        reservations:
-          cpus: '0.5'
-          memory: 512M
     volumes:
       - ./exps/:/root/.MARLIO-runner/
       - ./configs/set3/update5000_withexplosion/config.yml:/MARLIO-runner/config.yml
       - ./configs/set3/update5000_withexplosion/config.json:/MARLIO-runner/config.json
+      - ./exps/update5000_withexplosion/ep_500.model:/MARLIO-runner/ep_500.model
+
+  level8:
+    build: .
+    entrypoint: python3 main.py --expname=level8 --train
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1024M
+    volumes:
+      - ./exps/:/root/.MARLIO-runner/
+      - ./configs/set3/level8/config.yml:/MARLIO-runner/config.yml
+      - ./configs/set3/level8/config.json:/MARLIO-runner/config.json
+      
+  level11:
+    build: .
+    entrypoint: python3 main.py --expname=level11 --train
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1024M
+    volumes:
+      - ./exps/:/root/.MARLIO-runner/
+      - ./configs/set3/level11/config.yml:/MARLIO-runner/config.yml
+      - ./configs/set3/level11/config.json:/MARLIO-runner/config.json
