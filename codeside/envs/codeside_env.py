@@ -101,16 +101,16 @@ class CodeSideEnv(gym.Env):
                 unit["health"],
                 unit["position"]["x"],
                 unit["position"]["y"],
+                unit["mines"],
+                unit.get("weapon", {}).get("magazine", 0),
+                unit.get("weapon", {}).get("last_angle", 0),
+                unit.get("weapon", {}).get("typ", {}).get("value", -1),
                 int(unit["jump_state"]["can_jump"]),
                 int(unit["walked_right"]),
                 int(unit["stand"]),
                 int(unit["on_ground"]),
                 int(unit["on_ladder"]),
-                unit["mines"],
-                unit.get("weapon", {}).get("typ", {}).get("value", -1),
-                unit.get("weapon", {}).get("magazine", 0),
                 int(unit.get("weapon", {}).get("was_shooting", False)),
-                unit.get("weapon", {}).get("last_angle", 0),
             ]
 
             x = math.floor(observation[2])
