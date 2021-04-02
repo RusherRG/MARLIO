@@ -9,11 +9,13 @@ game_config:
 agents_config:
   agents: DQN
   mode: train
-  model_path: ep_420.model
-  start_episode: 420
+  model_path: null
+  start_episode: 0
   episodes: 1000
   epochs: 1
-  update_every: 1000
-  epsilon: 0.25
-  epsilon_decay: 0.00001
+  update_every: 5000
+  minibatch_size: 64
+  train_every: 16
+  epsilon: 1
+  epsilon_decay: 0.000005
   save_every: 20
