@@ -12,10 +12,10 @@ agents_config:
   model_path: null
   start_episode: 0
   episodes: 1000
-  epochs: 1
+  epochs: 4
   update_every: 5000
   minibatch_size: 64
-  train_every: 16
+  train_every: 64
   epsilon: 1
   epsilon_decay: 0.000005
   save_every: 20

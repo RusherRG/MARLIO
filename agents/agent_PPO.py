@@ -4,10 +4,26 @@ from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.layers import Dense, Input, Embedding, Flatten, \
     Reshape, Concatenate
 from tensorflow.keras.callbacks import TensorBoard
+from tensorflow.keras.optimizers import Adam
 import math
 import random
 import numpy as np
 import tensorflow.keras.backend as K
+from tensorflow.python.framework.ops import disable_eager_execution
+disable_eager_execution()
+
+
+clipping_val = 0.2
+critic_discount = 0.5
+entropy_beta = 0.001
+gamma = 0.99
+lmbda = 0.95
+dummy_12 = np.zeros((1, 1, 12))
+dummy_5 = np.zeros((1, 1, 5))
+dummy_4 = np.zeros((1, 1, 4))
+dummy_2 = np.zeros((1, 1, 2))
+dummy_1 = np.zeros((1, 1, 1))
+
 
 class Strategy:
     def __init__(self, env, config, logger, logdir):
@@ -16,15 +32,11 @@ class Strategy:
         self.logger = logger
 
         self.frame_count = 0
-        self.action_count = 0
         self.epoch_count = 0
         self.memory = deque(maxlen=10000)
 
-        self.epsilon = self.config.epsilon
         self.batch_size = self.config.minibatch_size
         self.train_every = self.config.train_every
-        self.update_target_every = self.config.update_every
-        self.epsilon_decay_value = self.config.epsilon_decay
 
         self.actor = self.create_actor()
         self.critic = self.create_critic()
@@ -37,27 +49,53 @@ class Strategy:
 
         state = Input(shape=(110,), name="state")
 
+        # different inputs for each of the oldpolicy output
+        oldpolicy_probs_aim = Input(shape=(1, 12,), name="oldpolicy_probs_aim")
+        oldpolicy_probs_velocity = Input(
+            shape=(1, 5,), name="oldpolicy_probs_velocity")
+        oldpolicy_probs_action = Input(
+            shape=(1, 4,), name="oldpolicy_probs_action")
+        oldpolicy_probs_jump = Input(
+            shape=(1, 2,), name="oldpolicy_probs_jump")
+        oldpolicy_probs_jump_down = Input(
+            shape=(1, 2,), name="oldpolicy_probs_jump_down")
+        # needed for PPO loss calculation
+        advantages = Input(shape=(1, 1,), name="advantages")
+        rewards = Input(shape=(1, 1,), name="rewards")
+        values = Input(shape=(1, 1,), name="values")
+
         concat = Concatenate()([state, tiles_out])
 
         x = Dense(256, activation="relu")(concat)
         x = Dense(128, activation="relu")(x)
         x = Dense(64, activation="relu")(x)
 
-        aim = self.build_branch(x, 12, "aim")
-        velocity = self.build_branch(x, 5, "velocity")
-        action = self.build_branch(x, 4, "action")
-        jump = self.build_branch(x, 2, "jump")
-        jump_down = self.build_branch(x, 2, "jump_down")
+        aim = self.build_branch(x, 12, "aim", "softmax")
+        velocity = self.build_branch(x, 5, "velocity", "softmax")
+        action = self.build_branch(x, 4, "action", "softmax")
+        jump = self.build_branch(x, 2, "jump", "softmax")
+        jump_down = self.build_branch(x, 2, "jump_down", "softmax")
 
-        model = Model(inputs=[state, tiles], outputs=[
-                      aim, velocity, action, jump, jump_down])
-        model.compile(optimizer='Adam',
-                      loss='MSE', metrics=['accuracy'])
+        model = Model(inputs=[state, tiles, oldpolicy_probs_aim,
+                              oldpolicy_probs_velocity, oldpolicy_probs_action,
+                              oldpolicy_probs_jump, oldpolicy_probs_jump_down,
+                              advantages, rewards, values],
+                      outputs=[aim, velocity, action, jump, jump_down])
+        # different loss for each output
+        model.compile(optimizer=Adam(learning_rate=1e-4),
+                      loss=[self.ppo_loss(
+                          oldpolicy_probs=op,
+                          advantages=advantages,
+                          rewards=rewards,
+                          values=values)
+                          for op in [oldpolicy_probs_aim,
+                                     oldpolicy_probs_velocity,
+                                     oldpolicy_probs_action,
+                                     oldpolicy_probs_jump,
+                                     oldpolicy_probs_jump_down]])
 
         self.logger.info(model.summary())
         return model
-
-
 
     def create_critic(self):
         tiles = Input(shape=(7, 7), name="tiles")
@@ -72,16 +110,11 @@ class Strategy:
         x = Dense(256, activation="relu")(concat)
         x = Dense(128, activation="relu")(x)
         x = Dense(64, activation="relu")(x)
+        x = Dense(32, activation="relu")(x)
+        out_actions = Dense(1, activation="tanh")(x)
 
-        aim = self.build_branch(x, 1, "aim")
-        velocity = self.build_branch(x, 1, "velocity")
-        action = self.build_branch(x, 1, "action")
-        jump = self.build_branch(x, 1, "jump")
-        jump_down = self.build_branch(x, 1, "jump_down")
-
-        model = Model(inputs=[state, tiles], outputs=[
-                      aim, velocity, action, jump, jump_down])
-        model.compile(optimizer='Adam',
+        model = Model(inputs=[state, tiles], outputs=[out_actions])
+        model.compile(optimizer=Adam(learning_rate=1e-4),
                       loss='MSE', metrics=['accuracy'])
 
         self.logger.info(model.summary())
@@ -99,13 +132,13 @@ class Strategy:
                 if i < 7:
                     input_state.append(unit[i])
                 elif i == 7:
-                    input_state.extend(
-                        tf.one_hot(unit[i], 3,
-                                   on_value=1.0, off_value=0.0).numpy().tolist())
+                    onehot = np.zeros(3)
+                    onehot[unit[i]] = 1
+                    input_state.extend(onehot.tolist())
                 else:
-                    input_state.extend(
-                        tf.one_hot(unit[i], 2,
-                                   on_value=1.0, off_value=0.0).numpy().tolist())
+                    onehot = np.zeros(2)
+                    onehot[unit[i]] = 1
+                    input_state.extend(onehot.tolist())
 
         unit_x = state["units"][0][1]
         unit_y = state["units"][0][2]
@@ -126,17 +159,18 @@ class Strategy:
             if dist < min_dist:
                 min_dist = dist
                 closest_mine = mine
+        onehot = np.zeros(4)
+        onehot[closest_mine[2]] = 1
         closest_mine = closest_mine[:2] + \
-            tf.one_hot(closest_mine[2], 4,
-                       on_value=1.0, off_value=0.0).numpy().tolist() + \
+            onehot.tolist() + \
             closest_mine[3:]
         input_state.extend(closest_mine)
 
         for loot in state["loot_boxes"][:10]:
+            onehot = np.zeros(3)
+            onehot[loot[2]] = 1
             input_state.extend(loot[:2] +
-                               tf.one_hot(loot[2], 3,
-                                          on_value=1.0, off_value=0.0)
-                               .numpy().tolist() +
+                               onehot.tolist() +
                                loot[3:])
         prev_len = len(input_state)
         for i in range(prev_len, 110):
@@ -148,10 +182,9 @@ class Strategy:
 
         return [np.array(input_state), np.array(state["units"][0][-1])]
 
-
-    def build_branch(self, x, n_outputs, name):
+    def build_branch(self, x, n_outputs, name, activation):
         x = Dense(32, activation="relu")(x)
-        x = Dense(n_outputs, name=f"{name}_output")(x)
+        x = Dense(n_outputs, activation=activation, name=f"{name}_output")(x)
         return x
 
     def act(self, state):
@@ -160,50 +193,52 @@ class Strategy:
         input_state = self.preprocess(state)
         # self.logger.debug(input_state)
 
-        current_q_action = self.actor.predict([
+        predicted_action = self.actor.predict([
             input_state[0].reshape(1, -1),
-            input_state[1].reshape(1, 7, 7)
+            input_state[1].reshape(1, 7, 7),
+            dummy_12, dummy_5, dummy_4, dummy_2, dummy_2,
+            dummy_1, dummy_1, dummy_1
         ])
-        current_q_critic = self.critic.predict([
-            input_state[0].reshape(1, -1),
-            input_state[1].reshape(1, 7, 7)
-        ])
-        self.logger.debug("Action")
-        self.logger.debug(current_q_action)
-        # if np.random.random() > self.epsilon:
-        self.action_count += 1
-        discrete_action = [np.argmax(q_values[0])
-                            for q_values in current_q_action]
-        action = self.env.get_action(discrete_action)
-        # else:
-        #     action, discrete_action = self.env.sample_action()
-        action = {3: action}
-        return action, discrete_action
+        action_probs = [q[0] for q in predicted_action]
 
+        values = self.critic.predict([
+            input_state[0].reshape(1, -1),
+            input_state[1].reshape(1, 7, 7)
+        ])
+
+        self.logger.debug("Action")
+        self.logger.debug(predicted_action)
+
+        # probabilisitc random choice for action
+        discrete_action = [np.random.choice(len(q), p=q)
+                           for q in action_probs]
+        print(discrete_action)
+        action = self.env.get_action(discrete_action)
+        action = {3: action}
+        return action, discrete_action, values, action_probs
 
     def ppo_loss(self, oldpolicy_probs, advantages, rewards, values):
         def loss(y_true, y_pred):
-            clipping_val= 0.2
-            critic_discount = 0.95
-
+            total_loss = 0
             newpolicy_probs = y_pred
-            ratio = K.exp(K.log(newpolicy_probs + 1e-10) - K.log(oldpolicy_probs + 1e-10))
+            ratio = K.exp(K.log(newpolicy_probs + 1e-10) -
+                          K.log(oldpolicy_probs + 1e-10))
             p1 = ratio * advantages
-            p2 = K.clip(ratio, min_value=1 - clipping_val, max_value=1 + clipping_val) * advantages
+            p2 = K.clip(ratio, min_value=1 - clipping_val,
+                        max_value=1 + clipping_val) * advantages
             actor_loss = -K.mean(K.minimum(p1, p2))
             critic_loss = K.mean(K.square(rewards - values))
-            total_loss = critic_discount * critic_loss + actor_loss  * K.mean(
+            total_loss += critic_discount * critic_loss + actor_loss * K.mean(
                 -(newpolicy_probs * K.log(newpolicy_probs + 1e-10)))
+
             return total_loss
 
         return loss
 
-        
     def get_advantages(self, values, masks, rewards):
         returns = []
         gae = 0
-        gamma = 0.99
-        lmbda = 0.95
+
         for i in reversed(range(len(rewards))):
             delta = rewards[i] + gamma * values[i + 1] * masks[i] - values[i]
             gae = delta + gamma * lmbda * masks[i] * gae
@@ -212,19 +247,87 @@ class Strategy:
         adv = np.array(returns) - values[:-1]
         return returns, (adv - np.mean(adv)) / (np.std(adv) + 1e-10)
 
+    def remember(self, state, action, discrete_action, value, reward, done):
+        self.memory.append(
+            [state, action, discrete_action, value, reward, done])
 
-    def custom_logic(self, cur_state, action, reward, new_state, done, episode):
-        q_value = model_critic.predict(state_input, steps=1)
-        values.append(q_value)
-        returns, advantages = get_advantages(values, masks, rewards)
-        actor_loss = model_actor.fit(
-            [states, actions_probs, advantages, np.reshape(rewards, newshape=(-1, 1, 1)), values[:-1]],
-            [(np.reshape(actions_onehot, newshape=(-1, n_actions)))], verbose=True, shuffle=True, epochs=8,
-            callbacks=[tensor_board])
-        critic_loss = model_critic.fit([states], [np.reshape(returns, newshape=(-1, 1))], shuffle=True, epochs=8,
-                                    verbose=True, callbacks=[tensor_board])
+    def train(self):
+        if len(self.memory) < self.batch_size:
+            return
 
-            
+        # create batch
+        states = []
+        states_tiles = []
+        actions_probs = [[] for i in range(5)]
+        actions_onehot = [[] for i in range(5)]
+        values = []
+        rewards = []
+        masks = []
+
+        for _ in range(self.batch_size):
+            state, action_prob, action, value, reward, done = self.memory.popleft()
+            states.append(state[0])
+            states_tiles.append(state[1])
+            for i in range(len(action)):
+                actions_probs[i].append(action_prob[i])
+                onehot = np.zeros(len(action_prob[i]))
+                onehot[action[i]] = 1
+                actions_onehot[i].append(onehot.tolist())
+            values.append(value)
+            rewards.append(reward)
+            masks.append(not done)
+
+        # add one extra future value
+        values.append(self.critic.predict([
+            state[0].reshape(1, -1),
+            state[1].reshape(1, 7, 7)
+        ]))
+        # np.array for each output
+        for i in range(5):
+            actions_onehot[i] = np.array(actions_onehot[i])
+
+        # fit actor and critic models
+        returns, advantages = self.get_advantages(values, masks, rewards)
+        actor_input = {
+            "state": np.asarray(states),
+            "tiles": np.asarray(states_tiles),
+            "oldpolicy_probs_aim": np.asarray(actions_probs[0]).reshape(-1, 1, 12),
+            "oldpolicy_probs_velocity": np.asarray(actions_probs[1]).reshape(-1, 1, 5),
+            "oldpolicy_probs_action": np.asarray(actions_probs[2]).reshape(-1, 1, 4),
+            "oldpolicy_probs_jump": np.asarray(actions_probs[3]).reshape(-1, 1, 2),
+            "oldpolicy_probs_jump_down": np.asarray(actions_probs[4]).reshape(-1, 1, 2),
+            "advantages": np.asarray(advantages),
+            "rewards": np.reshape(rewards, newshape=(-1, 1, 1)),
+            "values": np.asarray(values[:-1])
+        }
+
+        self.actor.fit(actor_input,
+                       actions_onehot,
+                       verbose=True, shuffle=True,
+                       epochs=self.epoch_count+self.config.epochs,
+                       initial_epoch=self.epoch_count)
+        self.critic.fit([np.array(states),
+                         np.array(states_tiles)],
+                        np.reshape(returns, (-1, 1)),
+                        shuffle=True, verbose=True,
+                        epochs=self.epoch_count+self.config.epochs,
+                        initial_epoch=self.epoch_count)
+        return
+
+    def custom_logic(self, cur_state, action, reward, new_state, done, step,
+                     discrete_action, value, action_prob):
+        # update replay memory
+        self.remember(self.preprocess(cur_state), action_prob,
+                      discrete_action, value, reward, done)
+
+        # train every x steps
+        if self.frame_count % self.train_every == 0:
+            self.logger.info("Training model")
+            self.train()
+
+        self.frame_count += 1
+        return
 
     def save_model(self, fn):
-        raise NotImplementedError
+        self.actor.save(fn)
+        self.critic.save(f"{fn}_critic")

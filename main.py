@@ -133,16 +133,15 @@ def single_agent(config, verbose, gui, tensorboard, output_dir, train):
         step = 0
         tot_reward = 0
         while True:
-            action, discrete_action = agent.act(cur_state)
+            action, *args = agent.act(cur_state)
             logger.debug(action)
-            logger.debug(discrete_action)
             new_state, reward, done, _ = env.step(player, action)
             tensorboard.log_step(episode, step, action, reward)
             if done:
                 break
 
-            agent.custom_logic(cur_state, discrete_action, reward,
-                               new_state, done, step)
+            agent.custom_logic(cur_state, action, reward,
+                               new_state, done, step, *args)
             cur_state = new_state
             tot_reward += reward
             step += 1

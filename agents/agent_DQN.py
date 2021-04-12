@@ -184,7 +184,7 @@ class Strategy:
                          for i in range(len(action))]
             else:
                 new_q = [reward for i in range(len(action))]
-            
+
             # get current q-value and update it with new q-value
             cur_q = self.model.predict([
                 cur_state[0].reshape(1, -1),
@@ -194,7 +194,7 @@ class Strategy:
                 cur_q[i] = cur_q[i][0]
             for i in range(len(action)):
                 cur_q[i][action[i]] = new_q[i]
-            
+
             X_state.append(cur_state[0])
             X_tiles.append(cur_state[1])
             for i in range(len(action)):
@@ -216,9 +216,10 @@ class Strategy:
         self.target_model.set_weights(self.model.get_weights())
         return
 
-    def custom_logic(self, cur_state, action, reward, new_state, done, step):
+    def custom_logic(self, cur_state, action, reward, new_state, done, step,
+                     discrete_action):
         # update replay
-        self.remember(self.preprocess(cur_state), action, reward,
+        self.remember(self.preprocess(cur_state), discrete_action, reward,
                       self.preprocess(new_state), done)
 
         # target train every x steps
