@@ -1,0 +1,21 @@
+game_config:
+  agents: 1
+  render_mode: human
+  batch_mode: true
+  level: default
+  host: 127.0.0.1
+  port: 31000
+
+agents_config:
+  agents: PPO
+  mode: train
+  model_path: null
+  start_episode: 0
+  episodes: 1000
+  epochs: 4
+  update_every: 2500
+  minibatch_size: 64
+  train_every: 64
+  epsilon: 1
+  epsilon_decay: 0.000005
+  save_every: 20
